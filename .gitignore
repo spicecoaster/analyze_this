@@ -54,4 +54,7 @@ docs/_build/
 target/
 
 # Data Files
-# *.dat
+*.dat
+*.csv
+*.xls
+*.xlsx
