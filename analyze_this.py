@@ -24,33 +24,67 @@ import string
 import random
 import argparse
 import sys
+import types
+import datetime
+
+"""
+MySQL: INTEGER, DATE, DATETIME, VARCHAR(Max: 65535), TEXT (Max: 2^16), MEDIUMTEXT (Max: 2^24), LONGTEXT (Max: 2^32)
+PostgreSQL: INTEGER (4 Bytes), BIGINT (8 Bytes), NUMERIC (Before Decimal: 131072, Precision: 16383), DATE, TIMESTAMP, VARCHAR (Max: 1 GB), TEXT (Max: unlimited)
+SQLite: INTEGER, NUMERIC, REAL, TEXT
+Microsoft SQL Server: INT, NUMERIC, DATE, DATETIME, VARCHAR, TEXT
+Oracle: NUMBER (Total: 10^125, Precision: 38), DATE, VARCHAR2 (Max: 4000), CLOB (Max 128 TB)
+"""
 
 num_cols = 0
+col_names = []
 col_max_size = []
+col_type = []
+create_table_sql = ''
 
 def get_columns_from_header(row, delimiter):
-    global num_cols
+    global col_names, num_cols, col_type, col_max_size
 
     col_headers = row
-    num_cols = len(col_headers.split(delimiter))
+    col_names  = col_headers.split(delimiter)
+    num_cols = len(col_names)
     for i in range(num_cols):
         col_max_size.append(0)
+        col_type.append('TEXT')
     #print col_headers
     #print num_cols
 
 def get_column_sizes(row, delimiter):
+    global col_max_size
     row_data = row.split(delimiter)
     for i in range(num_cols):
         if (len(row_data[i]) > col_max_size[i]):
             col_max_size[i] = len(row_data[i])
-    pass
+
+def get_column_types(row, delimiter):
+    global col_type
+    row_data = row.split(delimiter)
+    for i in range(num_cols):
+        if (isinstance(row_data[i], (types.IntType, types.FloatType, types.LongType, types.ComplexType))):
+            col_type[i] = 'NUMBER'
+        if (isinstance(row_data[i], (types.StringTypes))):
+            col_type[i] = 'TEXT'
+        if (isinstance(row_data[i], (datetime.datetime))):
+            col_type[i] = 'DATETIME'
+        if (isinstance(row_data[i], (datetime.date))):
+            col_type[i] = 'DATE'
 
 def generate_CREATE_sql():
-    pass
+    sql = 'CREATE TABLE AAA (\n'
+    for i in range(num_cols):
+        sql = sql + '\t' + col_names[i] + '\t' + col_type[i] + ',\n'
+    sql = sql + ')'
+    return sql
 
 def analyze_row(row, delimiter):
+    global create_table_sql
+
     get_column_sizes(row, delimiter)
-    pass
+    get_column_types(row, delimiter)
 
 def analyze_file(input_file, output_file, row_delimiter, column_delimiter):
     global col_max_size
@@ -62,8 +96,11 @@ def analyze_file(input_file, output_file, row_delimiter, column_delimiter):
             first_line = False
         else:
             analyze_row(line.rstrip(), column_delimiter)
+    create_table_sql = generate_CREATE_sql()
+    print col_names
     print col_max_size
-    generate_CREATE_sql()
+    print col_type
+    print create_table_sql
 
 if __name__ =='__main__':
     parser = argparse.ArgumentParser(description='Analyze data file to determine CREATE SQL for target table.')
